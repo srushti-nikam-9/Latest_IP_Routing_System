@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IP Routing using Dijkstra Algorithm</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f9;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
+
+        label {
+            font-weight: bold;
+        }
+
+        input[type="number"] {
+            width: 50px;
+            margin: 5px;
+        }
+
+        table {
+            margin: 20px 0;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+
+        th, td {
+            padding: 10px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #45a049;
+        }
+
+        #result {
+            margin-top: 20px;
+            font-weight: bold;
+        }
+
+        #routingTableContainer {
+            margin-top: 20px;
+        }
+
+        .subnet-info {
+            font-size: 1.2em;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>IP Routing using Dijkstra's Algorithm</h1>
+
+    <label for="numRouters">Enter number of routers:</label>
+    <input type="number" id="numRouters" min="1" max="100" value="3">
+    <button onclick="generateMatrix()">Generate Matrix</button>
+
+    <div id="matrixContainer"></div>
+
+    <div id="routingForm" style="display:none;">
+        <label for="subnet">Enter subnet (e.g., '192.168.1.0'):</label>
+        <input type="text" id="subnet">
+        <br>
+        <label for="sourceIP">Enter source IP:</label>
+        <input type="text" id="sourceIP">
+        <br>
+        <label for="destinationIP">Enter destination IP:</label>
+        <input type="text" id="destinationIP">
+        <br>
+        <label for="sourceRouter">Source Router (0 to N):</label>
+        <input type="number" id="sourceRouter" min="0" value="0">
+        <label for="destinationRouter">Destination Router (0 to N):</label>
+        <input type="number" id="destinationRouter" min="0" value="1">
+        <br>
+        <button onclick="calculateRoute()">Calculate Route</button>
+    </div>
+
+    <div id="result"></div>
+    <div id="routingTableContainer"></div>
+</div>
+
+<script>
+    let n;
+    let adjMatrix = [];
+
+    function generateMatrix() {
+        n = parseInt(document.getElementById('numRouters').value);
+        const matrixContainer = document.getElementById('matrixContainer');
+        matrixContainer.innerHTML = '';
+
+        // Create table for distance matrix
+        let table = '<table><thead><tr><th></th>';
+        for (let i = 0; i < n; i++) {
+            table += `<th>Router ${i}</th>`;
+        }
+        table += '</tr></thead><tbody>';
+
+        for (let i = 0; i < n; i++) {
+            table += `<tr><td><b>Router ${i}</b></td>`;
+            for (let j = 0; j < n; j++) {
+                table += `<td><input type="number" id="cell-${i}-${j}" value="0" min="0" style="width: 50px;"></td>`;
+            }
+            table += '</tr>';
+        }
+
+        table += '</tbody></table>';
+        matrixContainer.innerHTML = table;
+
+        // Show routing form
+        document.getElementById('routingForm').style.display = 'block';
+        document.getElementById('result').innerHTML = '';
+    }
+
+    function getMatrix() {
+        adjMatrix = [];
+        for (let i = 0; i < n; i++) {
+            let row = [];
+            for (let j = 0; j < n; j++) {
+                let val = parseInt(document.getElementById(`cell-${i}-${j}`).value);
+                row.push(val);
+            }
+            adjMatrix.push(row);
+        }
+    }
+
+    function checkSubnet(sourceIP, destinationIP, subnet) {
+        // Compare subnet portions of the IP addresses
+        const subnetParts = subnet.split('.').slice(0, 3).join('.');
+        const srcParts = sourceIP.split('.').slice(0, 3).join('.');
+        const destParts = destinationIP.split('.').slice(0, 3).join('.');
+        return srcParts === subnetParts && destParts === subnetParts;
+    }
+
+    function dijkstra(source) {
+        const dist = Array(n).fill(Infinity);
+        const prevRouter = Array(n).fill(-1);
+        const visited = Array(n).fill(false);
+        dist[source] = 0;
+
+        for (let i = 0; i < n; i++) {
+            let u = -1;
+            for (let j = 0; j < n; j++) {
+                if (!visited[j] && (u === -1 || dist[j] < dist[u])) {
+                    u = j;
+                }
+            }
+
+            if (dist[u] === Infinity) break;
+            visited[u] = true;
+
+            for (let v = 0; v < n; v++) {
+                if (adjMatrix[u][v] && !visited[v]) {
+                    let alt = dist[u] + adjMatrix[u][v];
+                    if (alt < dist[v]) {
+                        dist[v] = alt;
+                        prevRouter[v] = u;
+                    }
+                }
+            }
+        }
+        return { dist, prevRouter };
+    }
+
+    function printPath(source, dest, prevRouter) {
+        let path = [];
+        for (let at = dest; at !== -1; at = prevRouter[at]) {
+            path.push(at);
+        }
+        path.reverse();
+        if (path[0] !== source) {
+            return "No path found!";
+        }
+        return path.join(' -> ');
+    }
+
+    function calculateRoute() {
+        getMatrix();
+        const source = parseInt(document.getElementById('sourceRouter').value);
+        const dest = parseInt(document.getElementById('destinationRouter').value);
+        const sourceIP = document.getElementById('sourceIP').value;
+        const destinationIP = document.getElementById('destinationIP').value;
+        const subnet = document.getElementById('subnet').value;
+
+        const sameSubnet = checkSubnet(sourceIP, destinationIP, subnet);
+        const resultDiv = document.getElementById('result');
+
+        if (sameSubnet) {
+            resultDiv.innerHTML = `<hr><br><h3>Source and Destination are in the same subnet.</h3> <span style="color:red;">No routing required.</span>`;
+        } else {
+            const { dist, prevRouter } = dijkstra(source);
+            const path = printPath(source, dest, prevRouter);
+            resultDiv.innerHTML = `<hr><br><h3>Source and Destination are in different subnets.</h3>
+            <span style="color:red;">Routing required.</span>
+            <br><h3>Shortest path routing: </h3><span style="color:green;">${path}</span>
+            <br><h3>Total cost:</h3><span style="color:green;">${dist[dest]}</span>`;
+        }
+    }
+</script>
+
+</body>
+</html>
